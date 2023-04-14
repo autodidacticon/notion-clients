@@ -1,0 +1,308 @@
+openapi: '3.0.3'
+info:
+  title: Notion API
+  version: 1.0.0
+  description: Notion API Connector
+servers:
+  - url: https://api.notion.com/v1
+    description: Production URL
+
+paths:
+  /users/{user_id}:
+    get:
+      summary: Retrieves a User using the ID specified
+      description: Retrieve a user object using the ID specified in the request path.
+      operationId: RetrieveUserByID
+      externalDocs:
+        url: https://developers.notion.com/reference/get-user
+      tags:
+        - Users
+      parameters:
+        - $ref: '#/components/parameters/notion-version'
+        - $ref: '#/components/parameters/user-ID'
+      responses:
+        '200':
+          $ref: '#/components/responses/user-response'
+        '400':
+          $ref: '#/components/responses/failed-response'
+        '403':
+          $ref: '#/components/responses/unauthorized-response'
+
+  /users/me:
+    get:
+      summary: Retrieves the bot User associated with the API token
+      description: 'Get the bot user'
+      operationId: GetBotuser
+      externalDocs:
+        url: https://developers.notion.com/reference/get-self
+      tags:
+        - Users
+      parameters:
+        - $ref: '#/components/parameters/notion-version'
+      responses:
+        '200':
+          $ref: '#/components/responses/user-response'
+        '400':
+          $ref: '#/components/responses/failed-response'
+        '403':
+          $ref: '#/components/responses/unauthorized-response'
+
+  /users:
+    get:
+      summary: Returns a paginated list of Users for the workspace
+      description: Get all users
+      operationId: Listusers
+      externalDocs:
+        url: https://developers.notion.com/reference/get-users
+      tags:
+        - Users
+        - Paginated
+      parameters:
+        - $ref: '#/components/parameters/pagination'
+        - $ref: '#/components/parameters/notion-version'
+      responses:
+        '200':
+          $ref: '#/components/responses/user-search-response'
+        '400':
+          $ref: '#/components/responses/failed-response'
+        '403':
+          $ref: '#/components/responses/unauthorized-response'
+
+  /pages:
+    post:
+      summary: Creates a new page in the specified database or as a child of an existing page.
+      description: Create a page
+      operationId: CreatePage
+      externalDocs:
+        url: https://developers.notion.com/reference/post-page
+      tags:
+        - Pages
+      parameters:
+        - $ref: '#/components/parameters/notion-version'
+      requestBody:
+        $ref: '#/components/requestBodies/page-create'
+      responses:
+        '200':
+          $ref: '#/components/responses/page-response'
+
+  /pages/{page_id}:
+    parameters:
+      - $ref: '#/components/parameters/notion-version'
+      - $ref: '#/components/parameters/page-id'
+    get:
+      summary: Retrieves a Page object using the ID specified
+      description: Retrieve a page
+      operationId: RetrievePage
+      externalDocs:
+        url: https://developers.notion.com/reference/retrieve-a-page
+      tags:
+        - Pages
+      responses:
+        '200':
+          $ref: '#/components/responses/page-response'
+        '400':
+          $ref: '#/components/responses/failed-response'
+        '403':
+          $ref: '#/components/responses/unauthorized-response'
+        '404':
+          description: Page does not exist
+    patch:
+      summary: Updates page property values for the specified page. Properties that are not set via the properties parameter will remain unchanged.
+      description: Update Page Properties
+      operationId: UpdatePage
+      externalDocs:
+        url: https://developers.notion.com/reference/patch-page
+      tags:
+        - Pages
+      requestBody:
+        $ref: '#/components/requestBodies/page-update'
+      responses:
+        '200':
+          $ref: '#/components/responses/page-response'
+        '400':
+          $ref: '#/components/responses/failed-response'
+        '403':
+          $ref: '#/components/responses/unauthorized-response'
+        '404':
+          description: Could not update - Page not found
+
+  /pages/{page_id}/properties/{property_id}:
+    get:
+      summary: Retrieves a property_item object for a given page_id and property_id
+      description:  Depending on the property type, the object returned will either be a value or a paginated list of property item values
+      operationId: GetPropertyForPage
+      externalDocs:
+        url: https://developers.notion.com/reference/retrieve-a-page-property
+      tags:
+        - Pages
+        - Paginated
+      parameters:
+        - $ref: '#/components/parameters/notion-version'
+        - $ref: '#/components/parameters/page-id'
+        - $ref: '#/components/parameters/property-id'
+        - $ref: '#/components/parameters/pagination'
+      responses:
+        '200':
+          $ref: '#/components/responses/property-item-response'
+        '400':
+          $ref: '#/components/responses/failed-response'
+        '403':
+          $ref: '#/components/responses/unauthorized-response'
+        '404':
+          description: Property does not exist
+
+components:
+  schemas:
+    paginated-results:
+      type: object
+      properties:
+        next_cursor:
+          type: string
+          format: uuid
+        has_more:
+          type: boolean
+    user-search-result:
+      allOf:
+        - $ref: '#/components/schemas/paginated-results'
+        - type: object
+          properties:
+            results:
+              type: array
+              items:
+                $ref: 'User.yaml#/user-object'
+
+
+  responses:
+    user-response:
+      description: Representation of a user-object
+      content:
+        application/json:
+          schema:
+            $ref: 'User.yaml#/user-object'
+    user-search-response:
+      description: user Results
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/user-search-result'
+      links:
+        more-users:
+          operationId: Listusers
+          parameters:
+            start_cursor: $response.body/#next_cursor
+    page-response:
+      description: 'Result of a page fetch'
+      content:
+        application/json:
+          schema:
+            $ref: 'Page.yaml#/page-object'
+    failed-response:
+      description: The operation failed
+    unauthorized-response:
+      description: Insufficient Privileges
+    property-item-response:
+      description: Representation of a Property Item response
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: 'Page.yaml#/page-property-items/single-property-item'
+              - $ref: 'Page.yaml#/page-property-items/paginated-property-list'
+            discriminator:
+              propertyName: object
+              mapping:
+                list: 'Page.yaml#/page-property-items/paginated-property-list'
+                property_item: 'Page.yaml#/page-property-items/single-property-item'
+
+  requestBodies:
+    page-update:
+      description: A Page Update Body Object
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: 'Page.yaml#/page-object'
+              - type: object
+                properties:
+                  parent:
+                    readOnly: true
+    page-create:
+      description: A Page Create Body Object
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: 'Page.yaml#/page-object'
+              - type: object
+                properties:
+                  children:
+                    type: array
+                    items:
+                      $ref: 'Block.yaml#/block-object'
+
+
+  parameters:
+    notion-version:
+      name: Notion-Version
+      in: header
+      required: true
+      description: 'The Notion API Version'
+      schema:
+        type: string
+        format: date
+        default: '2022-06-28'
+    user-ID:
+      name: user_id
+      in: path
+      required: true
+      description: 'Represents a user ID'
+      schema:
+        $ref: 'Common.yaml#/id/id-type'
+    page-id:
+      name: page_id
+      in: path
+      required: true
+      description: 'Represents a page ID'
+      schema:
+        $ref: 'Common.yaml#/id/id-type'
+    property-id:
+      name: property_id
+      in: path
+      required: true
+      description: Represents a page property ID
+      schema:
+        type: string
+    pagination:
+      name: Paging_Object
+      in: query
+      required: false
+      description: An object representing the values returned from pagination requests
+      schema:
+        type: object
+        required:
+        - page_size
+        properties:
+          start_cursor:
+            type: string
+          page_size:
+            type: number
+            maximum: 100
+            minimum: 1
+            default: 100
+
+  securitySchemes:
+    notion-bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - notion-bearer: []
+
+tags:
+  - name: Pages
+    description: Operations that deal with Notion Pages
+  - name: Paginated
+    description: Operations that are paginated
+  - name: Users
+    description: Operations that deal with Notion Users
